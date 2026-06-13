@@ -424,14 +424,24 @@ async function buildContainerArgs(
   // a transient hard failure: if we can't wire the gateway, we don't spawn.
   // The caller (router or host-sweep) catches the throw, leaves the inbound
   // message pending, and the next sweep tick retries.
-  if (agentIdentifier) {
-    await onecli.ensureAgent({ name: agentGroup.name, identifier: agentIdentifier });
+  // Path B (local-only, no OneCLI): when ONECLI_API_KEY is unset, run agents airtight
+  // on the --internal ai-sandbox network with NO credential proxy. Skip OneCLI wiring
+  // entirely rather than throwing. Mirrors upstream's `if (ONECLI_API_KEY)` guard.
+  // See ~/stacks/PLAN.md (Phase 4a) / docs/adr/0001.
+  if (ONECLI_API_KEY) {
+    if (agentIdentifier) {
+      await onecli.ensureAgent({ name: agentGroup.name, identifier: agentIdentifier });
+    }
+    const onecliApplied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: agentIdentifier });
+    if (!onecliApplied) {
+      throw new Error('OneCLI gateway not applied — refusing to spawn container without credentials');
+    }
+    log.info('OneCLI gateway applied', { containerName });
+  } else {
+    log.info('OneCLI disabled (ONECLI_API_KEY unset) — spawning agent without credential proxy', {
+      containerName,
+    });
   }
-  const onecliApplied = await onecli.applyContainerConfig(args, { addHostMapping: false, agent: agentIdentifier });
-  if (!onecliApplied) {
-    throw new Error('OneCLI gateway not applied — refusing to spawn container without credentials');
-  }
-  log.info('OneCLI gateway applied', { containerName });
 
   // Egress lockdown when enabled — throws if it can't be established, aborting
   // the spawn rather than running with open egress. Otherwise the host gateway.
