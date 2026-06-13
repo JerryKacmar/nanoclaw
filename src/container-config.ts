@@ -43,6 +43,10 @@ export interface ContainerConfig {
   maxMessagesPerPrompt?: number;
   model?: string;
   effort?: string;
+  /** Per-agent-group container env overrides (e.g. ANTHROPIC_BASE_URL → local Ollama). */
+  env?: Record<string, string>;
+  /** Hosts pinned to 0.0.0.0 inside the container (e.g. api.anthropic.com). */
+  blockedHosts?: string[];
 }
 
 /** Build a `ContainerConfig` from a DB row + agent group identity. */
@@ -63,6 +67,8 @@ export function configFromDb(row: ContainerConfigRow, group: AgentGroup): Contai
     maxMessagesPerPrompt: row.max_messages_per_prompt ?? undefined,
     model: row.model ?? undefined,
     effort: row.effort ?? undefined,
+    env: JSON.parse(row.env ?? '{}') as Record<string, string>,
+    blockedHosts: JSON.parse(row.blocked_hosts ?? '[]') as string[],
   };
 }
 

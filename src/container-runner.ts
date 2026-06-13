@@ -443,6 +443,23 @@ async function buildContainerArgs(
     });
   }
 
+  // Path-B fork delta (P2 — Ollama provider): per-agent-group env overrides,
+  // applied last so the group config wins over provider/OneCLI contributions.
+  // Used to point an agent at the local Ollama (ANTHROPIC_BASE_URL=http://ollama:11434).
+  if (containerConfig.env) {
+    for (const [key, value] of Object.entries(containerConfig.env)) {
+      args.push('-e', `${key}=${value}`);
+    }
+  }
+
+  // Blocked hosts: resolve to 0.0.0.0 so they are unreachable inside the
+  // container (e.g. pin api.anthropic.com shut so config drift can't bill the API).
+  if (containerConfig.blockedHosts) {
+    for (const host of containerConfig.blockedHosts) {
+      args.push('--add-host', `${host}:0.0.0.0`);
+    }
+  }
+
   // Egress lockdown when enabled — throws if it can't be established, aborting
   // the spawn rather than running with open egress. Otherwise the host gateway.
   if (ensureEgressNetwork()) {
