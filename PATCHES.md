@@ -47,3 +47,20 @@ Context: `~/stacks/PLAN.md` and `~/stacks/docs/adr/0001-ai-tools-network-segment
 - **Re-apply test:** set a group's `env`/`blocked_hosts` (e.g. via
   `UPDATE container_configs …`), spawn, then `docker inspect <ctr>` shows the `ANTHROPIC_*` env and
   `api.anthropic.com:0.0.0.0` in `ExtraHosts`; Ollama (`ollama ps`) shows the model loading.
+
+## P3 — Telegram channel installed (from upstream/channels), pinned to 4.26.0
+
+- **Files:** `src/channels/telegram.ts` + `telegram-pairing.ts` + `telegram-markdown-sanitize.ts`
+  (and their `.test.ts` siblings) + `telegram-registration.test.ts`, copied from `upstream/channels`;
+  `src/channels/index.ts` gains `import './telegram.js';`; `@chat-adapter/telegram` added to
+  `package.json`. (`setup/pair-telegram.ts` + the `pair-telegram` STEPS entry were already present.)
+- **What:** the `/add-telegram` skill, run against `upstream/channels` (the fork's `origin` has no
+  `channels` branch — use `upstream/channels`, not `origin/channels` as the skill text says).
+- **Version pin — IMPORTANT:** the skill pins `@chat-adapter/telegram@4.27.0`, but that depends on
+  `chat@4.27.0` while the fork's core still resolves `chat@4.26.0` (`^4.24.0`) — `tsc` then fails on a
+  `ChatInstance` type mismatch (`processOptionsLoad`). **Pinned to `@chat-adapter/telegram@4.26.0`**
+  instead (→ `chat@4.26.0`, matches core; the copied `telegram.ts` uses no 4.27-only API). Re-bump only
+  if/when the core `chat` is bumped to 4.27.x. Build clean + 42 telegram tests pass.
+- **Token:** `TELEGRAM_BOT_TOKEN` lives in `.env` (gitignored, read by the host) + `data/env/env` —
+  NOT in the systemd unit. The Telegram adapter runs in the host orchestrator (the trusted boundary
+  that already has egress); agents stay internal. Pairing via `setup/index.ts --step pair-telegram`.
