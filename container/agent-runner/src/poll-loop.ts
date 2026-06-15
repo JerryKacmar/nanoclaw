@@ -506,7 +506,12 @@ function handleEvent(event: ProviderEvent, _routing: RoutingContext): void {
  * blocks, even with a single destination. Bare text is scratchpad only.
  */
 function dispatchResultText(text: string, routing: RoutingContext): { sent: number; hasUnwrapped: boolean } {
-  const MESSAGE_RE = /<message\s+to="([^"]+)"\s*>([\s\S]*?)<\/message>/g;
+  // Local-model tolerance (fork delta P5): also accept <micro_message to="...">.
+  // qwen3.x via Ollama reliably emits the correct destination + structure but
+  // stubbornly uses the tag `micro_message`; accepting it lets local-model
+  // agents actually deliver. Claude always uses `<message>`, so this is a no-op
+  // for the default provider.
+  const MESSAGE_RE = /<(?:micro_)?message\s+to="([^"]+)"\s*>([\s\S]*?)<\/(?:micro_)?message>/g;
 
   let match: RegExpExecArray | null;
   let sent = 0;

@@ -64,3 +64,20 @@ Context: `~/stacks/PLAN.md` and `~/stacks/docs/adr/0001-ai-tools-network-segment
 - **Token:** `TELEGRAM_BOT_TOKEN` lives in `.env` (gitignored, read by the host) + `data/env/env` —
   NOT in the systemd unit. The Telegram adapter runs in the host orchestrator (the trusted boundary
   that already has egress); agents stay internal. Pairing via `setup/index.ts --step pair-telegram`.
+
+## P5 — Local-model reply tolerance (accept `<micro_message>`)
+
+- **File:** `container/agent-runner/src/poll-loop.ts` (`dispatchResultText`, the `MESSAGE_RE` regex).
+- **What:** the output parser only matched `<message to="...">...</message>`; extended it to
+  `<(?:micro_)?message …>` so it ALSO accepts `<micro_message to="...">`.
+- **Why:** NanoClaw's reply protocol expects exactly `<message to="name">`. `qwen3.x` via Ollama
+  reliably emits the correct destination + structure but stubbornly tags it `micro_message` (an
+  inherent prior — forbidding it in the prompt just primes it). Without this, every local-model reply
+  was classified as scratchpad and silently dropped ("agent output had no <message to> blocks"). Claude
+  always uses `<message>`, so this is a no-op for the default provider — purely local-model tolerance.
+- **Companion (not code):** the Probe group's `CLAUDE.local.md` adds `/no_think` + an explicit
+  "output one `<message to="DEST">` block, no tools, no narration" instruction; a Telegram reply
+  **destination** was added (`ncl destinations add … --local-name telegram`) — pairing created the
+  wiring but not the destination, so the agent previously had nowhere to send a Telegram reply.
+- **Re-apply test:** a local-model agent's reply containing `<micro_message to="telegram">…` is
+  delivered (host log "Message delivered"), not dropped.
